@@ -9,10 +9,28 @@
 struct my_msgbuf
 {
   long mtype;
-  int mtext[3];
+  char mtext[3];
 };
 
 typedef struct my_msgbuf msgbuf;
+
+key_t *keys,parent;
+int *queues,pqueue,n;
+pid_t *pids;
+
+void inthandler(int signo)
+{
+	deletequeues(pqueue,queues,n);
+	killchilds(pids,n);
+	exit(0);
+}
+
+void alarm_handler(int signo)
+{
+	alarm(5);
+	
+	// printf("WAKING up after 5 seconds\n");
+}
 
 int deletequeues(int pq,int *queues,int n)
 {
@@ -33,6 +51,7 @@ int killchilds(int* pids,int n)
 
 int main(int argc, char const *argv[])
 {
+	signal(SIGINT,inthandler);
 	msgbuf buf;
 
 	if(argc!=2)
@@ -41,11 +60,11 @@ int main(int argc, char const *argv[])
 		exit(-1);
 	}
 
-	int n=atoi(argv[1]);
-	key_t *keys=(key_t *)malloc(n*sizeof(key_t));
-	int *queues=(int *)malloc(n*sizeof(int)),pqueue;
+	n=atoi(argv[1]);
+	keys=(key_t *)malloc(n*sizeof(key_t));
+	queues=(int *)malloc(n*sizeof(int));
 
-	key_t parent=ftok("mq.c",0);
+	parent=ftok("mq.c",0);
 	pqueue=msgget(parent,IPC_CREAT | 0666);
 	int i,j;
 
@@ -55,17 +74,36 @@ int main(int argc, char const *argv[])
 		queues[i]=msgget(keys[i],IPC_CREAT | 0666);
 	}
 
-	pid_t *pids=(pid_t *)malloc(n*sizeof(pid_t));
+	pids=(pid_t *)malloc(n*sizeof(pid_t));
 	int ppid=getpid();
 	for(i=0;i<n;i++)
 	{
 		pids[i]=fork();
 		if(pids[i]==0)
 		{
-			while(1==1)
-			{
-				sleep(1);
-			}
+			buf.mtype=2;
+			signal(SIGALRM,alarm_handler);
+			sleep(i);
+			alarm(5);
+
+			for (;;)
+    		{
+    			// printf("queue %d\n",queues[i]);
+    			// printf("buf.mtype = %ld\n",buf.mtype);
+      			if (msgrcv (queues[i], &(buf.mtype), sizeof (buf.mtext), 0, 0) == -1)
+				{
+					if (errno == EINTR) continue;
+					// printf("text=%s\n",buf.mtext );
+	  				perror ("error in receiving message.Exiting\n");
+	  				exit (1);
+				}
+      			printf("PID: %d\n",getpid() );
+    		}
+
+			// while(msgrcv (queues[i], &(buf.mtype), sizeof (buf.mtext), 0, 0) != -1)
+			// {
+			// 	printf("PID: %d\n",getpid() );
+			// }
 		}
 		else
 		{
@@ -73,7 +111,10 @@ int main(int argc, char const *argv[])
 		}
 	}
 
-	deletequeues(pqueue,queues,n);
-	killchilds(pids,n);
+
+	while(1==1)
+	{
+
+	}
 	return 0;
 }
