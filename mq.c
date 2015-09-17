@@ -5,11 +5,12 @@
 #include <sys/ipc.h>
 #include <sys/msg.h>
 #include <signal.h>
+#include <time.h>
 
 struct my_msgbuf
 {
   long mtype;
-  char mtext[3];
+  char mtext[7];
 };
 
 typedef struct my_msgbuf msgbuf;
@@ -27,9 +28,14 @@ void inthandler(int signo)
 
 void alarm_handler(int signo)
 {
+	srand(time(NULL));
 	alarm(5);
-	
-	// printf("WAKING up after 5 seconds\n");
+	msgbuf buf;
+	buf.mtype=1;
+	int r = rand()%10000000;
+	sprintf(buf.mtext,"%d",r);
+	msgsnd(pqueue,&(buf.mtype),sizeof(buf.mtext),0);
+	printf("MESSAGE SENT   - PID = %d   MESSAGE = %s\n",getpid(),buf.mtext);
 }
 
 int deletequeues(int pq,int *queues,int n)
@@ -97,7 +103,7 @@ int main(int argc, char const *argv[])
 	  				perror ("error in receiving message.Exiting\n");
 	  				exit (1);
 				}
-      			printf("PID: %d\n",getpid() );
+      			printf("MESSAGE RECEIVED   - PID = %d   MESSAGE = %s\n",getpid(),buf.mtext);
     		}
 
 			// while(msgrcv (queues[i], &(buf.mtype), sizeof (buf.mtext), 0, 0) != -1)
@@ -110,11 +116,24 @@ int main(int argc, char const *argv[])
 			continue;
 		}
 	}
-
-
-	while(1==1)
+	// sleep(3);
+	for (;;)
 	{
-
+		buf.mtype=1;
+		// printf("queue %d\n",queues[i]);
+		// printf("buf.mtype = %ld\n",buf.mtype);
+		if (msgrcv (pqueue, &(buf.mtype), sizeof (buf.mtext), 0, 0) == -1)
+		{
+			if (errno == EINTR) continue;
+			// printf("text=%s\n",buf.mtext );
+				perror ("error in receiving message.Exiting\n");
+				exit (1);
+		}
+		for(i=0;i<n;i++)
+		{
+			buf.mtype=2;
+			msgsnd(queues[i],&(buf.mtype),sizeof(buf.mtext),0);
+		}
 	}
 	return 0;
 }
