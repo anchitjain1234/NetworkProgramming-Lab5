@@ -5,6 +5,7 @@
 #include <sys/ipc.h>
 #include <sys/msg.h>
 #include <signal.h>
+#include <string.h>
 
 struct my_msgbuf
 {
@@ -25,11 +26,14 @@ void inthandler(int signo)
 	exit(0);
 }
 
-void alarm_handler(int signo)
+static void alarm_handler(int signo,siginfo_t *siginfo, void *context)
 {
 	alarm(5);
-	
-	// printf("WAKING up after 5 seconds\n");
+	// msgbug buf;
+	// buf.mtype=1;
+	// msgsnd(pqueue,&(buf.mtype),)
+	// msgsnd()
+	printf("WAKING up after 5 seconds PID: %ld\n",(long)getpid());
 }
 
 int deletequeues(int pq,int *queues,int n)
@@ -81,8 +85,14 @@ int main(int argc, char const *argv[])
 		pids[i]=fork();
 		if(pids[i]==0)
 		{
+			struct sigaction psa;
+			memset (&psa, 0, sizeof (psa));
+			psa.sa_sigaction=&alarm_handler;
+			psa.sa_flags = SA_SIGINFO;
+
+			sigaction(SIGALRM, &psa, NULL);
 			buf.mtype=2;
-			signal(SIGALRM,alarm_handler);
+			// signal(SIGALRM,alarm_handler);
 			sleep(i);
 			alarm(5);
 
