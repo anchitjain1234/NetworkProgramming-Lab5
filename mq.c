@@ -19,6 +19,12 @@ key_t *keys,parent;
 int *queues,pqueue,n;
 pid_t *pids;
 
+int randint_generator()
+{
+	srand(time(NULL));
+	return rand()%10000000;
+}
+
 void inthandler(int signo)
 {
 	deletequeues(pqueue,queues,n);
@@ -28,11 +34,10 @@ void inthandler(int signo)
 
 void alarm_handler(int signo)
 {
-	srand(time(NULL));
 	alarm(5);
 	msgbuf buf;
 	buf.mtype=1;
-	int r = rand()%10000000;
+	int r = randint_generator();
 	sprintf(buf.mtext,"%d",r);
 	if(msgsnd(pqueue,&(buf.mtype),sizeof(buf.mtext),0)==-1)
 	{
@@ -61,6 +66,7 @@ int killchilds(int* pids,int n)
 
 int main(int argc, char const *argv[])
 {
+	//Modified SIGINT handler so that all the message queues created could be deleted as well.
 	signal(SIGINT,inthandler);
 	msgbuf buf;
 
@@ -71,13 +77,19 @@ int main(int argc, char const *argv[])
 	}
 
 	n=atoi(argv[1]);
+
+	//keys for queue of child processes.
 	keys=(key_t *)malloc(n*sizeof(key_t));
+	//id of message queues for child processes.
 	queues=(int *)malloc(n*sizeof(int));
 
+	//key for queue for parent
 	parent=ftok("mq.c",0);
+	//id of parent message queue.
 	pqueue=msgget(parent,IPC_CREAT | 0666);
 	int i,j;
 
+	//creating n queues.
 	for(i=0;i<n;i++)
 	{
 		keys[i]=ftok("mq.c",i+1);
@@ -85,7 +97,9 @@ int main(int argc, char const *argv[])
 	}
 
 	pids=(pid_t *)malloc(n*sizeof(pid_t));
+
 	int ppid=getpid();
+
 	for(i=0;i<n;i++)
 	{
 		pids[i]=fork();
@@ -93,6 +107,8 @@ int main(int argc, char const *argv[])
 		{
 			buf.mtype=2;
 			signal(SIGALRM,alarm_handler);
+			//Adding variable sleep here so that all the child processes start sending messages at different times because for generating
+			//random integer I am seeding it with time .If two processes generate random int at that same time they would be having same number.
 			sleep(i);
 			alarm(5);
 
@@ -100,6 +116,7 @@ int main(int argc, char const *argv[])
     		{
       			if (msgrcv (queues[i], &(buf.mtype), sizeof (buf.mtext), 0, 0) == -1)
 				{
+					//Since in this blocking process we might also receive SIGALRM so EINTR needs to be ignored.
 					if (errno == EINTR) continue;
 	  				fprintf(stderr, "error in receiving message for pid %d\n",getpid() );
 				}
@@ -111,6 +128,8 @@ int main(int argc, char const *argv[])
 			continue;
 		}
 	}
+
+	//Sending messages from parent to child processes.
 	for (;;)
 	{
 		buf.mtype=1;
