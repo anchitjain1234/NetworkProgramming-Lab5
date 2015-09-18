@@ -34,8 +34,12 @@ void alarm_handler(int signo)
 	buf.mtype=1;
 	int r = rand()%10000000;
 	sprintf(buf.mtext,"%d",r);
-	msgsnd(pqueue,&(buf.mtype),sizeof(buf.mtext),0);
-	printf("MESSAGE SENT   - PID = %d   MESSAGE = %s\n",getpid(),buf.mtext);
+	if(msgsnd(pqueue,&(buf.mtype),sizeof(buf.mtext),0)==-1)
+	{
+		fprintf(stderr, "Error in sending message to PARENT FROM PID %d\n",getpid() );
+	}
+	else
+		printf("MESSAGE SENT   - PID = %d   MESSAGE = %s\n",getpid(),buf.mtext);
 }
 
 int deletequeues(int pq,int *queues,int n)
@@ -94,45 +98,32 @@ int main(int argc, char const *argv[])
 
 			for (;;)
     		{
-    			// printf("queue %d\n",queues[i]);
-    			// printf("buf.mtype = %ld\n",buf.mtype);
       			if (msgrcv (queues[i], &(buf.mtype), sizeof (buf.mtext), 0, 0) == -1)
 				{
 					if (errno == EINTR) continue;
-					// printf("text=%s\n",buf.mtext );
-	  				perror ("error in receiving message.Exiting\n");
-	  				exit (1);
+	  				fprintf(stderr, "error in receiving message for pid %d\n",getpid() );
 				}
       			printf("MESSAGE RECEIVED   - PID = %d   MESSAGE = %s\n",getpid(),buf.mtext);
     		}
-
-			// while(msgrcv (queues[i], &(buf.mtype), sizeof (buf.mtext), 0, 0) != -1)
-			// {
-			// 	printf("PID: %d\n",getpid() );
-			// }
 		}
 		else
 		{
 			continue;
 		}
 	}
-	// sleep(3);
 	for (;;)
 	{
 		buf.mtype=1;
-		// printf("queue %d\n",queues[i]);
-		// printf("buf.mtype = %ld\n",buf.mtype);
 		if (msgrcv (pqueue, &(buf.mtype), sizeof (buf.mtext), 0, 0) == -1)
 		{
 			if (errno == EINTR) continue;
-			// printf("text=%s\n",buf.mtext );
-				perror ("error in receiving message.Exiting\n");
-				exit (1);
+				perror ("error in receiving message to PARENT\n");
 		}
 		for(i=0;i<n;i++)
 		{
 			buf.mtype=2;
-			msgsnd(queues[i],&(buf.mtype),sizeof(buf.mtext),0);
+			if(msgsnd(queues[i],&(buf.mtype),sizeof(buf.mtext),0)==-1)
+				fprintf(stderr, "Error in sending message to QUEUE %d from PARENT\n",queues[i] );
 		}
 	}
 	return 0;
