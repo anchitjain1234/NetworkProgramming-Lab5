@@ -21,7 +21,7 @@ pid_t *pids;
 
 int randint_generator()
 {
-	srand(time(NULL));
+	srand(time(NULL)+getpid());
 	return rand()%10000000;
 }
 
@@ -78,6 +78,12 @@ int main(int argc, char const *argv[])
 
 	n=atoi(argv[1]);
 
+	if(n<=0)
+	{
+		perror("Please enter n greater than 0");
+		exit(0);
+	}
+
 	//keys for queue of child processes.
 	keys=(key_t *)malloc(n*sizeof(key_t));
 	//id of message queues for child processes.
@@ -109,7 +115,10 @@ int main(int argc, char const *argv[])
 			signal(SIGALRM,alarm_handler);
 			//Adding variable sleep here so that all the child processes start sending messages at different times because for generating
 			//random integer I am seeding it with time .If two processes generate random int at that same time they would be having same number.
-			sleep(i);
+			if(i<4)
+				sleep(i);
+			else
+				sleep(4);
 			alarm(5);
 
 			for (;;)
