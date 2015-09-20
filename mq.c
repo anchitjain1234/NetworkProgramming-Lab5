@@ -113,12 +113,11 @@ int main(int argc, char const *argv[])
 		{
 			buf.mtype=2;
 			signal(SIGALRM,alarm_handler);
-			//Adding variable sleep here so that all the child processes start sending messages at different times because for generating
-			//random integer I am seeding it with time .If two processes generate random int at that same time they would be having same number.
-			if(i<4)
-				sleep(i);
-			else
-				sleep(4);
+			//Variable sleep so that first 4 processes send message one at a time ,so that results can be seen clearly.
+			// if(i<4)
+			// 	sleep(i);
+			// else
+			// 	sleep(4);
 			alarm(5);
 
 			for (;;)
